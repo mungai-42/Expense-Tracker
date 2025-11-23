@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -9,6 +9,7 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
+import API from "../utils/api";
 
 const highlights = [
   {
@@ -27,8 +28,38 @@ const highlights = [
 
 export default function Landing() {
   const navigate = useNavigate();
-  const isAuthenticated = useMemo(() => !!localStorage.getItem("token"), []);
-  const storedRole = useMemo(() => localStorage.getItem("role"), []);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [storedRole, setStoredRole] = useState(null);
+  const [checking, setChecking] = useState(true);
+
+  // Validate token on mount
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const role = localStorage.getItem("role");
+    
+    if (!token) {
+      setChecking(false);
+      return;
+    }
+
+    // Validate token by checking user profile
+    API.get("/auth/me")
+      .then((res) => {
+        setIsAuthenticated(true);
+        setStoredRole(res.data.role || role);
+      })
+      .catch(() => {
+        // Token is invalid, clear it
+        localStorage.removeItem("token");
+        localStorage.removeItem("role");
+        setIsAuthenticated(false);
+        setStoredRole(null);
+      })
+      .finally(() => {
+        setChecking(false);
+      });
+  }, []);
+
   const primaryCtaLabel = isAuthenticated
     ? storedRole === "admin"
       ? "Enter admin portal"
@@ -63,29 +94,33 @@ export default function Landing() {
               with zero friction.
             </Typography>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              <Button
-                variant="contained"
-                size="large"
-                onClick={() =>
-                  navigate(isAuthenticated ? primaryDestination : "/register")
-                }
-                sx={{
-                  background:
-                    "linear-gradient(120deg, rgba(99,102,241,1), rgba(192,132,252,1))",
-                  fontWeight: 700,
-                }}
-              >
-                {primaryCtaLabel}
-              </Button>
-              {!isAuthenticated && (
-                <Button
-                  variant="outlined"
-                  size="large"
-                  onClick={() => navigate("/login")}
-                  sx={{ borderColor: "rgba(248,250,252,0.5)", color: "#f8fafc" }}
-                >
-                  Already have an account?
-                </Button>
+              {!checking && (
+                <>
+                  <Button
+                    variant="contained"
+                    size="large"
+                    onClick={() =>
+                      navigate(isAuthenticated ? primaryDestination : "/register")
+                    }
+                    sx={{
+                      background:
+                        "linear-gradient(120deg, rgba(99,102,241,1), rgba(192,132,252,1))",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {primaryCtaLabel}
+                  </Button>
+                  {!isAuthenticated && (
+                    <Button
+                      variant="outlined"
+                      size="large"
+                      onClick={() => navigate("/login")}
+                      sx={{ borderColor: "rgba(248,250,252,0.5)", color: "#f8fafc" }}
+                    >
+                      Already have an account?
+                    </Button>
+                  )}
+                </>
               )}
             </Stack>
           </Grid>
